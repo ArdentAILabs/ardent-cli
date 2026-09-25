@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "description": "The Ardent command-line interface",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArdentAILabs/ardent-cli.git"
+  },
   "type": "module",
   "bin": {
     "ardent-beta": "./bin/run.js"
