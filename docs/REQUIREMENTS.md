@@ -22,9 +22,11 @@ mechanism covers less than the sentence would, the sentence is narrowed.
 restate it. A requirement here constrains behavior that exists; the inventory of
 what exists has one home and it is not this file.
 
-**Verified against the working tree, 2026-09-15.** Every mechanism named below
-was read, and `docs/EVIDENCE.md` records which of them were also mutation-tested
-and which survived their guard being deleted.
+**Verified against the working tree, 2026-09-15; re-checked 2026-09-25.** Every
+mechanism named below was read on the first date, and `docs/EVIDENCE.md` records
+which of them were also mutation-tested and which survived their guard being
+deleted. The re-check confirmed that every test and symbol named here exists and
+corrected the statements it found false; it did not re-read every mechanism.
 
 ## Index
 
@@ -399,7 +401,9 @@ names `ardent-beta connector list` as the recovery command. `registered` alone
 returns success; `failed` reports the registration failure through
 `terminalText`, while `deleting` and
 `deleted` report those states, with the API's failure text through
-`terminalText` when it sends one, and stop. `halted` also stops without reporting
+`terminalText` when it sends one, and stop. A `deleting` connector's error names
+`ardent-beta connector list`; a `deleted` one's says the list will not show it,
+because the control plane's list leaves deleted connectors out. `halted` also stops without reporting
 success: the connector exists, whether or not registration finished, but its
 source runtime refused to continue and a halt does not clear by being polled, so the error names
 the connector, its halt reason through `terminalText` when the API sends one, and
@@ -411,8 +415,8 @@ deadline during requests and delays, late responses, terminal statuses,
 malformed responses, the separate read timeout, and timer cleanup.
 
 **7.6 `connector create` says what is still pending.** On a successful
-interactive registration it prints that credential delivery and replication
-readiness remain pending, because registration is not readiness.
+interactive registration it prints that replication readiness is still pending,
+because registration is not readiness.
 `ARDENT_CLI_DEVELOPMENT.md` under "Connector URL contract" requires the message
 and a `.greptile` rule flags its removal. `terminal connector creation waits for
 registration and names the remaining readiness work` checks the message after
@@ -484,7 +488,7 @@ version at startup.
 
 **9.6 `make ci` is the gate, and it is install, typecheck, test, and pack.**
 `CONTRIBUTING.md` states that upstream CI runs that same target, and it is also
-where the export and publication path is described. **Nothing in this directory
+where the export path is described. **Nothing in this directory
 can assert what the upstream pipeline does**, so no sentence here may claim a
 release is gated on anything beyond `make ci`.
 

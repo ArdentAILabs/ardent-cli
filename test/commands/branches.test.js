@@ -86,6 +86,15 @@ test('switch selects by name within the connector and writes only local context'
   assert.deepEqual(requests.map(({method}) => method), ['GET'])
 })
 
+test('a refused switch escapes the remote connector name', async (t) => {
+  const hostile = {...connector, name: 'Pri\u202Emary\u001b[31m'}
+  const {run} = await fixture(t, (_, response) => response.end(JSON.stringify([branch])), {...session, connectors: [hostile], selectedConnector: hostile})
+  const result = await run(['switch', 'missing'])
+  assert.notEqual(result.status, 0)
+  assert.ok(result.stderr.includes('"Pri\\u202emary\\u001b[31m"'), result.stderr)
+  assert.doesNotMatch(result.stderr, /[\u001b\u202e]/)
+})
+
 test('fails without login or connector discovery context before making a request', async (t) => {
   for (const saved of [undefined, {token: 'test-token', organization: session.organization}]) {
     const setup = await fixture(t, () => assert.fail('unexpected request'), saved ?? null)

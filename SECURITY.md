@@ -37,8 +37,8 @@ will be arranged.
 Please allow 90 days from acknowledgement before disclosing publicly. If a fix will take longer, we
 will tell you why and agree on a date rather than let the clock run out silently.
 
-Ardent does not run a paid bug-bounty program. Reporters are credited by name in the release notes
-for the fix unless they ask not to be.
+Ardent does not run a paid bug-bounty program. Reporters are credited by name in the security
+advisory for the fix unless they ask not to be.
 
 ## Scope
 
@@ -59,7 +59,7 @@ scope: path traversal or arbitrary file write when it persists local context, an
 triggered by a malicious or compromised API response.
 
 **Supply chain.** In scope: compromise of the published package or of the pipeline that builds and
-signs it; install or postinstall scripts that execute unexpected code; a dependency that exfiltrates
+publishes it; install or postinstall scripts that execute unexpected code; a dependency that exfiltrates
 data at install or run time; and anything that would let a third party publish under the Ardent
 package name.
 

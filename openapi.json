@@ -1534,6 +1534,18 @@
                 "format": "date-time"
               }
             }
+          },
+          "ddl_channel": {
+            "type": "object",
+            "required": ["health", "required_version"],
+            "properties": {
+              "health": {"type": "string", "enum": ["healthy", "degraded", "unknown"]},
+              "required_version": {"type": "integer", "minimum": 1},
+              "observed_version": {"type": "integer", "minimum": 0},
+              "status": {"type": "string", "enum": ["current", "worker_upgrade_required", "fresh_origin_required", "binding_repair_failed", "unavailable"]},
+              "observed_at": {"type": "string", "format": "date-time"},
+              "attempted_at": {"type": "string", "format": "date-time"}
+            }
           }
         }
       },
@@ -1872,6 +1884,13 @@
             "type": "string",
             "minLength": 1,
             "description": "Trimmed, then limited to 128 UTF-8 bytes; NUL is forbidden. Reuse for retries."
+          },
+          "source_ownership": {
+            "type": "string",
+            "enum": [
+              "seed_origin_v1"
+            ],
+            "description": "Optional birth ownership restoration at the selected latest mark only. Returns 409 source_ownership_unavailable unless that mark matches a supported installation seed origin. Credentials retain public_read_write_v1."
           }
         },
         "additionalProperties": false
@@ -1896,7 +1915,7 @@
       "CLICallback": {
         "type": "string",
         "format": "uri",
-        "description": "Exactly http://127.0.0.1:<port>/callback, port 1–65535; no user information, query, or fragment."
+        "description": "Exactly http://127.0.0.1:<port>/callback, port 1\u201365535; no user information, query, or fragment."
       },
       "CLIRandomValue": {
         "type": "string",

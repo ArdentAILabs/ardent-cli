@@ -22,10 +22,10 @@ Keep target selection visible. Commands that can create, mutate, or delete resou
 
 The PostgreSQL URL is the command contract: `ardent-beta connector create` takes the
 connector type and one standard connection URL as positional arguments. Do not
-replace that URL with separate host, user, or password flags, and do not add a
-temporary passwordless-only form while credential delivery is unfinished. The
-credential-delivery implementation must consume the same command shape rather
-than require users and automation to migrate twice.
+replace that URL with separate host, user, or password flags, or add a
+passwordless-only form. The control plane's credential delivery consumed this
+same command shape, so users and automation never had to migrate, and a later
+change to delivery must keep it.
 
 A password-bearing URL is visible in shell history and the process argument
 vector. That exposure is an explicitly accepted property of this interface; the

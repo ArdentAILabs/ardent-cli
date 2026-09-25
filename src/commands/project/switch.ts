@@ -38,7 +38,7 @@ export default class ProjectSwitch extends ArdentCommand {
       project = projects.find((candidate) => candidate.name === name)
       if (!project) {
         this.error(
-          `Project ${JSON.stringify(name)} not found in organization ${JSON.stringify(session.organization.name)}.`,
+          `Project ${JSON.stringify(name)} not found in organization "${terminalText(session.organization.name)}".`,
         )
       }
 

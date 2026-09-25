@@ -28,13 +28,13 @@ test('surfaces a terminal connector registration failure', async (t) => {
   await assert.rejects(waitForConnectorRegistration('token', 'connector-1'), /registration failed/)
 })
 
-for (const status of ['deleting', 'deleted']) {
+for (const [status, next] of [['deleting', 'Run ardent-beta connector list to check its state.'], ['deleted', 'It will not appear in ardent-beta connector list.']]) {
   test(`reports connector ${status} without reporting registration success`, async (t) => {
     t.mock.method(globalThis, 'fetch', async () => Response.json({connector_id: 'connector-1', status}))
     const statuses = []
     await assert.rejects(
       waitForConnectorRegistration('token', 'connector-1', (value) => statuses.push(value)),
-      new RegExp(`Connector connector-1 is ${status}\\. Run ardent-beta connector list`),
+      (error) => error.message === `Connector connector-1 is ${status}. ${next}`,
     )
     assert.deepEqual(statuses, [status])
   })

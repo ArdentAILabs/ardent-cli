@@ -99,7 +99,10 @@ export async function waitForConnectorRegistration(
       }
       if (status.status === 'deleting' || status.status === 'deleted') {
         const reason = status.failure ? `: ${terminalText(status.failure)}` : ''
-        throw new Error(`Connector ${terminalText(connectorID)} is ${status.status}${reason}. Run ardent-beta connector list to check its state.`)
+        // connector list leaves deleted connectors out, so it can only check a
+        // connector that is still deleting.
+        const next = status.status === 'deleting' ? 'Run ardent-beta connector list to check its state.' : 'It will not appear in ardent-beta connector list.'
+        throw new Error(`Connector ${terminalText(connectorID)} is ${status.status}${reason}. ${next}`)
       }
       await delay(2000, undefined, {signal: deadline.signal})
     }

@@ -6,11 +6,13 @@ The Ardent CLI is the customer command-line client for the control-plane API.
 
 Install the beta with `npm install --global ardent-cli-beta`, then run
 `ardent-beta <command>`. The package registers only the `ardent-beta` executable,
-so it can be installed alongside an existing `ardent` command.
+so it can be installed alongside an existing `ardent` command. `package.json`
+carries version `0.0.0` in source; the release pipeline sets the published
+version when it publishes, so a local build reports `0.0.0`.
 
 The Oclif foundation and authentication are implemented. `ardent-beta login` opens
-the Ardent frontend and returns the approved API key through a loopback callback
-bound with PKCE. `ardent-beta login --token <token>` validates and stores an existing
+the Ardent frontend, receives an authorization code on a loopback callback, and
+exchanges it for an API key with PKCE. `ardent-beta login --token <token>` validates and stores an existing
 API token for CI and automation; `ARDENT_TOKEN` supplies the same flag
 non-interactively. `ardent-beta status` and `ardent-beta logout` inspect and remove that
 local session. The CLI defaults to Ardent's production control plane. Oclif
@@ -18,14 +20,16 @@ provides help, version, autocomplete, and native JSON command behavior. Resource
 context is retained from login. Project listing, creation, deletion, and local
 context switching are implemented. Organization member listing, invitation,
 removal, and pending-invitation cancellation are implemented. Connector listing
-and registration are implemented; registration follows connector status, while
-credential delivery and replication readiness remain owed. Connector-scoped branch
+and registration are implemented; registration follows connector status and
+sends the connection URL for the control plane's credential delivery, while
+replication readiness remains owed. Connector-scoped branch
 creation, deletion, listing, and local switching are implemented.
 
 [openapi.json](openapi.json) describes the HTTP endpoints used by the CLI and
 ships in the npm package. It is a documentation snapshot of the control-plane
-specification from source revision `fbd09a11b9f094ebd13a7d58bda75eb0bb45b016`,
-not proof of deployed compatibility. To refresh it, replace it with the reviewed
+specification as of 2026-09-24, from Ardent's private source revision
+`c8510ab3e2422756a93e1df09acf994cf6bac34d`, and not proof of deployed
+compatibility. To refresh it, replace it with the reviewed
 control-plane specification, record its source revision here, and run `make ci`.
 The package test verifies archive contents; it does not detect upstream API
 changes. Ownership and snapshot limits are recorded in [docs/DECISIONS.md](docs/DECISIONS.md).
@@ -66,7 +70,7 @@ Creation uses the connector's latest published snapshot. If that snapshot is
 unavailable, creation fails without choosing an older one. Names are unique within
 a connector while the branch is not deleted. `branch delete` sends the connector
 and name to the API, which resolves the target. `branch list` fetches current state
-and marks the locally selected branch with `*`; `branch switch` changes local
+and marks the locally selected branch with `●` in its `Selected` column; `branch switch` changes local
 context. Create and delete follow the operation in an interactive terminal;
 non-interactive commands and `--json` return the accepted operation immediately.
 

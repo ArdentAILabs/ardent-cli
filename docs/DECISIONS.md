@@ -16,8 +16,9 @@ propose is noise; one that was merged and reverted is the only protection
 against merging it again. Each rejection below says which of the two it is,
 because "nearly adopted" asserted without a commit behind it is a story.
 
-**Compiled 2026-09-15.** Each decision states its status against the working
-tree.
+**Compiled 2026-09-15; re-checked 2026-09-25.** Each decision states its status
+against the working tree. The re-check corrected the statements that later
+changes had made false; it did not re-derive every decision.
 
 ---
 
@@ -47,8 +48,8 @@ entry rather than the deleted code.
 ### Rejected: separate host, user and password flags
 
 The URL is one positional argument. Replacing it with flags, or adding a
-temporary passwordless-only form while credential delivery is unfinished, makes
-users and automation migrate twice. `ARDENT_CLI_DEVELOPMENT.md` under "Connector
+temporary passwordless-only form while credential delivery was unfinished, would
+have made users and automation migrate twice. `ARDENT_CLI_DEVELOPMENT.md` under "Connector
 URL contract" is the home of that argument, and a `.greptile` rule flags a
 change that reopens it.
 

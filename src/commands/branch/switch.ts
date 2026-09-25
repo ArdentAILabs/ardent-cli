@@ -20,7 +20,7 @@ export default class BranchSwitch extends ArdentCommand {
     const branches = await listBranches(session.token, session.selectedConnector.id)
     const updated = await replaceBranchCache(this.config.configDir, session, branches)
     const branch = branches.find((candidate) => candidate.name === name)
-    if (!branch) this.error(`Branch ${JSON.stringify(name)} not found in connector ${JSON.stringify(session.selectedConnector.name)}.`)
+    if (!branch) this.error(`Branch ${JSON.stringify(name)} not found in connector "${terminalText(session.selectedConnector.name)}".`)
     await saveSession(this.config.configDir, {...updated, selectedBranch: {id: branch.id, name: branch.name, connector_id: branch.connector_id}})
     if (!this.jsonEnabled()) this.log(`✓ Switched to branch ${terminalText(name)} in connector ${terminalText(session.selectedConnector.name)}`)
     return branch

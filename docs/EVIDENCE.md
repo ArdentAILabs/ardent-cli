@@ -99,7 +99,7 @@ three were not.
 the success path. Both browser-login tests sent back the `state` the
 authorization URL asked for; neither sent a second callback. Every table
 fixture carried benign text. The authentication follow-up below closes the
-first two misses; table escaping remains owed.
+first two misses, and the terminal-output follow-up closes the third.
 
 **The mutation that mattered most was caught.** Writing the project cache before
 refusing an unknown name is a real defect this component had: the refusal exited
@@ -323,9 +323,20 @@ package dry run. The archive contained 72 files, including `openapi.json`.
 parsed the JSON and checked OpenAPI version 3.1.1.
 
 A separate comparison found the snapshot byte-identical to the control-plane
-specification at the source revision recorded in `README.md`. Validation against
-the official OpenAPI 3.1 document schema passed, as did checks of its 19 route
+specification at source revision `fbd09a11b9f094ebd13a7d58bda75eb0bb45b016`, the
+revision `README.md` recorded then; the snapshot has since been refreshed, see
+below. Validation against the official OpenAPI 3.1 document schema passed, as did checks of its 19 route
 registrations, references, unique operation IDs, path parameters and five request
 examples. These were handoff measurements, not a continuous upstream-drift gate
 or a measurement of a deployed API. This package was not published during the
 check.
+
+## Refreshed OpenAPI snapshot, 2026-09-25
+
+`openapi.json` was replaced with the control-plane specification at the source
+revision `README.md` now records, and `cmp` found the two files byte-identical.
+Against the previous snapshot it adds the connector's `ddl_channel` object and the
+branch-create `source_ownership` field. On macOS with Node 24.20.0, `make ci`
+passed all 104 tests, typechecking and the package dry run, and the archive held
+72 files. Schema validation and the route checks of the 2026-09-21 reading were
+not repeated, and nothing here measures a deployed API.

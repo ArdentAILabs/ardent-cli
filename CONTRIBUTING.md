@@ -4,7 +4,7 @@
 private upstream repository, which is the only place this code is edited. Changes travel one way,
 from upstream to here, by an export a maintainer runs from the upstream repository, replaying
 upstream history onto this one. Exports are manual, so there is no fixed schedule for when a merged
-change arrives. Anything committed directly here is overwritten by the next export and lost. Pull requests are
+change arrives. A commit made directly here stops the next export until a maintainer removes it, so nothing is committed here directly. Pull requests are
 genuinely welcome and are the right way to contribute: a maintainer applies an accepted PR upstream
 with your authorship preserved, and it arrives back here on the next export. Your PR is therefore
 closed rather than merged with the green button, and the commit that lands carries your name. That

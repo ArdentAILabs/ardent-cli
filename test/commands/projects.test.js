@@ -207,6 +207,25 @@ test('refuses a project name absent from the authoritative list', async (t) => {
   assert.match(result.stderr, /"Never existed" not found in organization "Ardent"/)
 })
 
+test('a refused switch escapes the remote organization name', async (t) => {
+  const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-project-switch-escape-'))
+  await saveSession(join(configHome, 'ardent'), {
+    organization: {id: 'organization-1', name: 'Ard\u202Eent\u001b[31m'},
+    projects: [{id: 'project-1', name: 'Database'}],
+    token: 'test-token',
+  })
+  const {server, url} = await listen((request, response) => {
+    response.setHeader('Content-Type', 'application/json')
+    response.end('[]')
+  })
+  t.after(() => server.close())
+
+  const result = await runCLI(['project', 'switch', 'Missing'], configHome, {ARDENT_API_URL: url})
+  assert.equal(result.status, 2)
+  assert.ok(result.stderr.includes('"Ard\\u202eent\\u001b[31m"'), result.stderr)
+  assert.doesNotMatch(result.stderr, /[\u001b\u202e]/)
+})
+
 test('a refused switch leaves the selected project and its context alone', async (t) => {
   const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-project-switch-refused-'))
   const before = {

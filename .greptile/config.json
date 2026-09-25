@@ -2,7 +2,7 @@
   "rules": [
     {
       "id": "postgresql-url-is-the-connector-command-contract",
-      "rule": "ARDENT_CLI_DEVELOPMENT.md's \"The PostgreSQL URL is the command contract\" records the approved interface decision. Flag changes that replace the positional URL with host, user, or password flags, reject password-bearing URLs as a temporary restriction, or require the later credential-delivery work to change the command shape. Treat visibility of a password-bearing URL in shell history or the process argument vector as the documented and accepted interface tradeoff, not a standalone defect. Until credential delivery lands, flag any path that transmits or stores the URL password or stops telling the user that credential delivery and replication readiness remain pending.",
+      "rule": "ARDENT_CLI_DEVELOPMENT.md's \"The PostgreSQL URL is the command contract\" records the approved interface decision. Flag changes that replace the positional URL with host, user, or password flags, or add a passwordless-only form. Treat visibility of a password-bearing URL in shell history or the process argument vector as the documented and accepted interface tradeoff, not a standalone defect. Flag any path that prints the URL or the TLS client certificate or key contents to terminal output, or that stops telling the user that replication readiness remains pending.",
       "scope": [
         "src/commands/connector/create.ts",
         "src/connectors/**",
