@@ -15,7 +15,14 @@ export default class Login extends ArdentCommand {
 
   public async run(): Promise<{authenticated: true; organizations: Organization[]}> {
     const {flags} = await this.parse(Login)
-    const organizations = flags.token
+    // Oclif discards an empty environment value, so without this an ARDENT_TOKEN
+    // that expands to nothing, such as a missing CI secret, would start a
+    // 30-minute browser login instead of failing.
+    if (flags.token === undefined && process.env.ARDENT_TOKEN !== undefined) {
+      this.error('ARDENT_TOKEN is set but empty. Set it to an Ardent API token, or unset it to log in with the browser.')
+    }
+
+    const organizations = flags.token !== undefined
       ? await loginWithToken(this.config.configDir, flags.token)
       : await loginWithBrowser(this.config.configDir, {
           onAuthorizationURL: (url, opened) => {

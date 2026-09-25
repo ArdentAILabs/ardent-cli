@@ -16,7 +16,7 @@ export function runCLIInTerminal(t, args, configHome, environment, answer) {
   const shellCommand = `cat | { ${['script', ...scriptArgs].map(shellQuote).join(' ')}; printf '\\036ARDENT_EXIT:%d\\036' "$?"; }`
   const child = spawn('/bin/sh', ['-c', shellCommand], {
     detached: true,
-    env: {...process.env, CI: '', TERM: 'xterm-256color', SHELL: '/bin/sh', ARDENT_TOKEN: '', XDG_CONFIG_HOME: configHome, ...environment},
+    env: {...process.env, CI: '', TERM: 'xterm-256color', SHELL: '/bin/sh', ARDENT_TOKEN: undefined, XDG_CONFIG_HOME: configHome, ...environment},
   })
   let output = ''
   let answered = false

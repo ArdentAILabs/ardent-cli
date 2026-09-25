@@ -14,7 +14,8 @@ The Oclif foundation and authentication are implemented. `ardent-beta login` ope
 the Ardent frontend, receives an authorization code on a loopback callback, and
 exchanges it for an API key with PKCE. `ardent-beta login --token <token>` validates and stores an existing
 API token for CI and automation; `ARDENT_TOKEN` supplies the same flag
-non-interactively. `ardent-beta status` and `ardent-beta logout` inspect and remove that
+non-interactively, and one that is set but empty fails rather than starting a
+browser login. `ardent-beta status` and `ardent-beta logout` inspect and remove that
 local session. The CLI defaults to Ardent's production control plane. Oclif
 provides help, version, autocomplete, and native JSON command behavior. Resource
 context is retained from login. Project listing, creation, deletion, and local

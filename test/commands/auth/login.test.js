@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import {mkdtemp} from 'node:fs/promises'
 import {createServer} from 'node:http'
 import {tmpdir} from 'node:os'
-import {join} from 'node:path'
+import {dirname, join} from 'node:path'
 import test from 'node:test'
 
 import {runCLI} from '../../run-cli.js'
@@ -23,7 +23,7 @@ test('keeps credentials out of token login, status, and logout output', async (t
   for (const json of [false, true]) {
     for (const source of ['flag', 'environment']) {
       const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-auth-output-'))
-      const environment = {ARDENT_API_URL: origin, ARDENT_TOKEN: source === 'environment' ? token : ''}
+      const environment = {ARDENT_API_URL: origin, ARDENT_TOKEN: source === 'environment' ? token : undefined}
       const suffix = json ? ['--json'] : []
       const loginArgs = source === 'flag' ? ['login', '--token', token] : ['login']
       const loggedIn = await runCLI([...loginArgs, ...suffix], configHome, environment)
@@ -50,6 +50,36 @@ test('keeps credentials out of token login, status, and logout output', async (t
     }
   }
   assert.deepEqual(requests, Array.from({length: 4}, () => ({path: '/organizations', authorization: `Bearer ${token}`})))
+})
+
+test('refuses an empty token instead of starting browser login', async (t) => {
+  const requests = []
+  const server = createServer((request, response) => {
+    requests.push(request.url)
+    response.statusCode = 500
+    response.end()
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  // No browser opener on PATH, and a deadline, so a regression into browser
+  // login fails this test instead of opening a browser or hanging it.
+  const environment = {ARDENT_API_URL: `http://127.0.0.1:${server.address().port}`, PATH: dirname(process.execPath)}
+
+  for (const [arguments_, token, refusal] of [
+    [['login', '--token', ''], undefined, /Ardent API token cannot be empty/],
+    [['login', '--token', '  '], undefined, /Ardent API token cannot be empty/],
+    [['login'], '', /ARDENT_TOKEN is set but empty/],
+    [['login'], '  ', /Ardent API token cannot be empty/],
+  ]) {
+    const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-empty-token-'))
+    const result = await runCLI(arguments_, configHome, {...environment, ARDENT_TOKEN: token}, {timeoutMs: 15_000})
+    const label = `${arguments_.join(' ')} with ARDENT_TOKEN=${JSON.stringify(token)}`
+    assert.ok(Number.isInteger(result.status) && result.status !== 0, `${label}: exit ${result.status}`)
+    assert.match(result.stderr, refusal, label)
+    assert.doesNotMatch(result.stdout, /browser|Open this URL/, label)
+    assert.equal(await loadSession(join(configHome, 'ardent')), undefined, label)
+  }
+  assert.deepEqual(requests, [])
 })
 
 test('exposes token login without an API target flag', async () => {

@@ -144,7 +144,12 @@ browser that never returns leaves no session.
 
 **3.5 The token path exists for CI and automation.** `login --token` reads
 `ARDENT_TOKEN` when the flag is absent, and `loginWithToken` trims the value and
-refuses an empty one. `exposes token login without an API target flag` asserts
+refuses an empty one. A token that is supplied but empty never falls back to
+browser login: an empty or blank `--token`, and a blank `ARDENT_TOKEN`, reach
+`loginWithToken`'s refusal; an empty `ARDENT_TOKEN`, which Oclif discards before
+the command sees it, is refused by `Login.run` itself. `refuses an empty token
+instead of starting browser login` drives all four with no browser opener on
+`PATH` and asserts a nonzero exit, no request and no session. `exposes token login without an API target flag` asserts
 `login --help` offers no API-target flag; `does not require a token flag` asserts
 the flag is optional.
 
