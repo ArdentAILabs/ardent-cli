@@ -1,0 +1,1952 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Ardent control-plane API used by the CLI",
+    "version": "0.1.0",
+    "description": "Review draft describing the current control-plane handlers used by the Ardent CLI, plus the frontend approval endpoint needed for browser login. This is a subset of the customer API, not an inventory of all routes. The document version is not a server API version.\n\nThe server implementation is authoritative. This file does not generate handlers or CLI types, and the routes-package TestCLIOpenAPIParity checks documented route registrations and selected struct schema shapes. Handler validation, authentication, status codes, and deployed behavior remain outside that partial gate. Descriptions were checked against source, not against a deployed service. API authentication uses Authorization: Bearer <token>; the CLI uses an organization-scoped API key. Browser approval uses a user JWT.\n\nTypical token flow: GET /organizations, GET /projects?organization_id=..., then GET /connectors?organization_id=...&project_id=..., then GET /branches?connector_id=.... Create a branch with POST /branches and poll GET /workflows/{workflowID} using operation.workflow_id. All example identifiers and credentials are placeholders.\n\nHTTP 202 means accepted, not completed. HTTP 503 with error workflow_result_timeout means durable work is still running. Authenticated resource clients inspect workflow_id and Location before retrying; an unauthenticated login exchange instead retries the same code and verifier after five seconds. Not all errors are JSON. Local CLI status, logout, project switch, and branch switch have no dedicated API endpoints; logout does not revoke the key. Internal workload routes, other customer endpoints, and database connection/credential delivery are outside this document's scope."
+  },
+  "servers": [
+    {
+      "url": "https://production.tryardent.com",
+      "description": "Production control plane."
+    }
+  ],
+  "security": [
+    {
+      "APIKeyBearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication"
+    },
+    {
+      "name": "Organizations"
+    },
+    {
+      "name": "Projects"
+    },
+    {
+      "name": "Members"
+    },
+    {
+      "name": "Connectors"
+    },
+    {
+      "name": "Branches"
+    },
+    {
+      "name": "Workflows"
+    }
+  ],
+  "paths": {
+    "/auth/cli": {
+      "get": {
+        "operationId": "beginCLILogin",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Begin browser login",
+        "description": "Opens the frontend approval flow. code_challenge is the unpadded base64url SHA-256 of the verifier. The CLI holds the verifier and listens on its loopback callback.",
+        "parameters": [
+          {
+            "name": "callback_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CLICallback"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CLIRandomValue"
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CLIRandomValue"
+            }
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "const": "S256"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "Redirect to the frontend approval page.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/auth/cli/authorize": {
+      "post": {
+        "operationId": "authorizeCLILogin",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Approve browser login",
+        "description": "Called by the frontend with a registered user JWT, not an API key. Requires api_keys.create in the organization. The frontend follows redirect_uri to deliver code and state to the CLI loopback callback.",
+        "security": [
+          {
+            "UserBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CLIAuthorize"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Approved callback URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "redirect_uri"
+                  ],
+                  "properties": {
+                    "redirect_uri": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "404": {
+            "$ref": "#/components/responses/TextError"
+          }
+        }
+      }
+    },
+    "/auth/cli/exchange": {
+      "post": {
+        "operationId": "exchangeCLILogin",
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange login code",
+        "description": "Exchange the approved code with its original verifier. On workflow_result_timeout the CLI retries this exchange after five seconds with the same code and verifier. The returned key is a credential: store it securely.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CLIExchange"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key for the approved organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "key"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "description": "Sensitive API key. Store securely; never log it."
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "description": "Credential creation is still running. Retry POST /auth/cli/exchange after five seconds with the same code and original verifier. The client has not received its API key; it cannot use the authenticated workflow endpoint to poll this result.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowPending"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Relative workflow status URL emitted by the server. This endpoint requires authentication; an unauthenticated exchange client retries the exchange instead."
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "5"
+                },
+                "description": "Retry interval in seconds."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations": {
+      "get": {
+        "operationId": "listOrganizations",
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "List organizations",
+        "description": "The CLI validates its API key with this endpoint and requires exactly one organization. API keys require organizations.read and are scoped to their own organization.",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organizations accessible to the caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Organization"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "List projects",
+        "description": "Requires projects.read in organization_id. An optional project_id filters the returned array; an absent match then returns 404.",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects in the organization.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create project",
+        "description": "Requires projects.create. A duplicate name returns 409 project_already_exists. A 503 workflow_result_timeout does not mean the project was not created.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Required. Trimmed, non-empty, at most 200 UTF-8 bytes. Keep the same key and request fields when retrying the same mutation."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              },
+              "example": {
+                "organization_id": "organization_example",
+                "name": "Developer sandbox"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created project.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkflowPending"
+          }
+        }
+      }
+    },
+    "/projects/{projectID}": {
+      "delete": {
+        "operationId": "deleteProject",
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete project",
+        "description": "Requires projects.delete. The resource and organization must match. A project with retained dependent records, including deleted branches, returns 409 project_has_dependents.",
+        "parameters": [
+          {
+            "name": "projectID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deletion completed; no response body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkflowPending"
+          }
+        }
+      }
+    },
+    "/organizations/{organizationID}/memberships": {
+      "get": {
+        "operationId": "listMemberships",
+        "tags": [
+          "Members"
+        ],
+        "summary": "List memberships",
+        "description": "Requires organization_memberships.read.",
+        "parameters": [
+          {
+            "name": "organizationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization memberships.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Membership"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/organizations/{organizationID}/memberships/{userID}": {
+      "delete": {
+        "operationId": "deleteMembership",
+        "tags": [
+          "Members"
+        ],
+        "summary": "Remove member",
+        "description": "Requires organization_memberships.update. Removing the last owner returns 409. Handler errors are plain text, except the JSON workflow timeout response.",
+        "parameters": [
+          {
+            "name": "organizationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "userID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Member removed; no response body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "403": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "404": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "409": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "500": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkflowPending"
+          }
+        }
+      }
+    },
+    "/organizations/{organizationID}/invitations": {
+      "get": {
+        "operationId": "listInvitations",
+        "tags": [
+          "Members"
+        ],
+        "summary": "List pending invitations",
+        "description": "Requires organization_invitations.read. The CLI omits invitations from member listing when this returns 403 permission_denied.",
+        "parameters": [
+          {
+            "name": "organizationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending organization invitations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Invitation"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInvitation",
+        "tags": [
+          "Members"
+        ],
+        "summary": "Invite member",
+        "description": "Requires organization_invitations.create and every requested scope. role_display_name is a label; permissions come from scopes. A 502 delivery error means the invitation was created but email delivery failed.",
+        "parameters": [
+          {
+            "name": "organizationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Required. Trimmed, non-empty, at most 200 UTF-8 bytes. Keep the same key and request fields when retrying the same mutation."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationCreate"
+              },
+              "example": {
+                "email": "developer@example.com",
+                "role_display_name": "Viewer",
+                "scopes": [
+                  "organizations.read",
+                  "projects.read"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created invitation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invitation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkflowPending"
+          },
+          "502": {
+            "description": "Invitation created but email delivery failed. Inspect invitation_id before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationDeliveryError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/organizations/{organizationID}/invitations/{invitationID}": {
+      "delete": {
+        "operationId": "deleteInvitation",
+        "tags": [
+          "Members"
+        ],
+        "summary": "Cancel invitation",
+        "description": "Requires organization_invitations.delete. The invitation must belong to the named organization.",
+        "parameters": [
+          {
+            "name": "organizationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "invitationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Invitation canceled; no response body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/WorkflowPending"
+          }
+        }
+      }
+    },
+    "/connectors": {
+      "get": {
+        "operationId": "listConnectors",
+        "tags": [
+          "Connectors"
+        ],
+        "summary": "List connectors",
+        "description": "Requires connectors.read. Both organization_id and project_id are required. Source credentials are not included in the response.",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connector metadata and optional onboarding failure details.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Connector"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createConnector",
+        "tags": [
+          "Connectors"
+        ],
+        "summary": "Register connector",
+        "description": "Requires connectors.create. Omitting environment_id requests Ardent Cloud placement. A reused request_id with conflicting fields returns 409 request_id_conflict. Poll GET /connectors/{connectorID}; registered means metadata-workflow completion, not source replication readiness.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorCreate"
+              },
+              "example": {
+                "organization_id": "organization_example",
+                "project_id": "project_example",
+                "request_id": "example-registration-1",
+                "name": "Development source",
+                "url": "postgresql://example_user:REPLACE_ME@db.example.com/app"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Registration accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorRegistration"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "403": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "413": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/connectors/{connectorID}": {
+      "get": {
+        "operationId": "getConnectorStatus",
+        "tags": [
+          "Connectors"
+        ],
+        "summary": "Read connector status",
+        "description": "Requires any of connectors.create, connectors.read, or connectors.delete in the owning organization. Missing or unauthorized connectors return 404. Handler errors are plain text. Registration completion does not establish replication readiness.",
+        "parameters": [
+          {
+            "name": "connectorID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Registration or deletion status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "500": {
+            "$ref": "#/components/responses/TextError"
+          }
+        }
+      }
+    },
+    "/branches": {
+      "get": {
+        "operationId": "listBranches",
+        "tags": [
+          "Branches"
+        ],
+        "summary": "List branches",
+        "description": "Requires environments.read in the connector organization. Deleted branches are omitted. Missing or unauthorized connectors return 404.",
+        "parameters": [
+          {
+            "name": "connector_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Branches belonging to the connector.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Branch"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBranch",
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Create branch",
+        "description": "Requires environments.update in the connector organization. Uses the newest published snapshot and refuses an unavailable newest snapshot with 409 snapshot_unavailable. Caller-selected snapshots and other unknown fields are rejected. Names are unique within a connector while the branch is not deleted. One JSON object, at most 16 KiB. Poll operation.workflow_id; acceptance is not completion.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchCreate"
+              },
+              "example": {
+                "connector_id": "connector_example",
+                "name": "My feature",
+                "request_id": "example-branch-1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Branch reservation and accepted workflow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchOperation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBranch",
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Delete branch by name",
+        "description": "Requires environments.update in the connector organization. Resolves connector_id and name server-side. One JSON object, at most 16 KiB. Poll operation.workflow_id; the branch in this response is the record read before erasure, not proof of deletion.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchDelete"
+              },
+              "example": {
+                "connector_id": "connector_example",
+                "name": "My feature"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Branch record and accepted erasure workflow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchOperation"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "404": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "409": {
+            "$ref": "#/components/responses/JSONError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/workflows/{workflowID}": {
+      "get": {
+        "operationId": "getWorkflow",
+        "tags": [
+          "Workflows"
+        ],
+        "summary": "Read workflow status",
+        "description": "The CLI polls this endpoint for branch operations. SUCCESS means the workflow completed; ERROR, CANCELLED, and MAX_RECOVERY_ATTEMPTS_EXCEEDED are terminal failures. The getWorkflow handler in api/routes/workflows.go selects actor-identity checks or organization authorization through auth.CheckOrganizationPermissions; the latter uses the recorded authorization scope for organization-owned workflows. Missing and unauthorized workflows return 404. A client timeout does not cancel server work.",
+        "parameters": [
+          {
+            "name": "workflowID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            },
+            "description": "Progress stream offset. Continue from next_offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current workflow status and progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workflow"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "400": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "404": {
+            "$ref": "#/components/responses/TextError"
+          },
+          "500": {
+            "$ref": "#/components/responses/TextError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "APIKeyBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Organization-scoped Ardent API key."
+      },
+      "UserBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Authenticated user JWT used by the browser approval endpoint."
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid, expired, or revoked authentication.",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "JSONError": {
+        "description": "Request rejected; inspect error and message.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TextError": {
+        "description": "Request rejected; the response body is plain text.",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal failure. Authentication middleware can return plain text even when the handler returns JSON.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WorkflowPending": {
+        "description": "The durable mutation is still running, not confirmed failed. Poll the Location URL before retrying. Authorization for polling remains subject to the workflow owner and scope.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/WorkflowPending"
+            }
+          }
+        },
+        "headers": {
+          "Location": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "Relative workflow status URL."
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "string",
+              "const": "5"
+            },
+            "description": "Retry interval in seconds."
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowPending": {
+        "type": "object",
+        "required": [
+          "error",
+          "message",
+          "workflow_id"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "workflow_result_timeout"
+          },
+          "message": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          }
+        }
+      },
+      "InvitationDeliveryError": {
+        "type": "object",
+        "required": [
+          "error",
+          "message",
+          "invitation_id"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "const": "organization_invitation_delivery_failed"
+          },
+          "message": {
+            "type": "string"
+          },
+          "invitation_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Organization": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role_display_name",
+          "scopes",
+          "created_at",
+          "updated_at",
+          "joined_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role_display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "joined_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Membership": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "user_id",
+          "email",
+          "full_name",
+          "role_display_name",
+          "scopes",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role_display_name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Invitation": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "organization_name",
+          "email",
+          "role_display_name",
+          "scopes",
+          "expires_at",
+          "created_by",
+          "inviter_name",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role_display_name": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inviter_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Connector": {
+        "type": "object",
+        "required": [
+          "id",
+          "project_id",
+          "environment_id",
+          "name",
+          "status",
+          "source",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "environment_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "host",
+              "port",
+              "database"
+            ],
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer"
+              },
+              "database": {
+                "type": "string"
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "onboarding": {
+            "type": "object",
+            "required": [
+              "failure_stage",
+              "failure_code",
+              "failed_at"
+            ],
+            "properties": {
+              "failure_stage": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failed_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "retry_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      },
+      "ConnectorRegistration": {
+        "type": "object",
+        "required": [
+          "connector_id"
+        ],
+        "properties": {
+          "connector_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ConnectorStatus": {
+        "type": "object",
+        "required": [
+          "connector_id",
+          "status"
+        ],
+        "properties": {
+          "connector_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "registering",
+              "registered",
+              "failed",
+              "halted",
+              "deleting",
+              "deleted"
+            ]
+          },
+          "failure": {
+            "type": "string"
+          },
+          "phase": {
+            "type": "string"
+          }
+        },
+        "description": "Registration workflow completion is not replication readiness. Deletion status can also be returned by this endpoint. halted means a source runtime component reported a standing halt; failure is then <component>:<classification>."
+      },
+      "Branch": {
+        "type": "object",
+        "required": [
+          "id",
+          "connector_id",
+          "name",
+          "organization_id",
+          "project_id",
+          "environment_id",
+          "request_id",
+          "state",
+          "sequence",
+          "generation",
+          "created_by",
+          "created_at",
+          "updated_by",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "connector_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "project_id": {
+            "type": "string"
+          },
+          "environment_id": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failure_reason": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_by": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BranchOperation": {
+        "type": "object",
+        "required": [
+          "branch",
+          "operation"
+        ],
+        "properties": {
+          "branch": {
+            "$ref": "#/components/schemas/Branch"
+          },
+          "operation": {
+            "type": "object",
+            "required": [
+              "operation_id",
+              "workflow_id"
+            ],
+            "properties": {
+              "operation_id": {
+                "type": "string"
+              },
+              "workflow_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Workflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "created_at",
+          "updated_at",
+          "progress",
+          "next_offset",
+          "progress_closed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DELAYED",
+              "ENQUEUED",
+              "PENDING",
+              "SUCCESS",
+              "ERROR",
+              "CANCELLED",
+              "MAX_RECOVERY_ATTEMPTS_EXCEEDED"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "failure": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "stage"
+              ],
+              "properties": {
+                "stage": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "next_offset": {
+            "type": "integer"
+          },
+          "progress_closed": {
+            "type": "boolean"
+          },
+          "cloudformation_stack_url": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectCreate": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "name"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "The handler trims both fields and requires non-empty values."
+      },
+      "InvitationCreate": {
+        "type": "object",
+        "required": [
+          "email",
+          "role_display_name"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Parsed as a mail address; the address is lowercased."
+          },
+          "role_display_name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Display label, not an authorization role enum. Send the desired scopes explicitly."
+          },
+          "scopes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "description": "Every scope must be a valid organization scope held by the caller. Omitted or null scopes become an empty list."
+          }
+        }
+      },
+      "ConnectorCreate": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "project_id",
+          "request_id",
+          "name",
+          "url"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "environment_id": {
+            "type": "string",
+            "description": "Optional. An omitted or empty value selects Ardent Cloud through server-side placement."
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Trimmed, then limited to 128 UTF-8 bytes. Reuse for retries of the same request."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "writeOnly": true,
+            "description": "PostgreSQL connection URL, including source credentials. Do not log this value."
+          },
+          "tls_client_certificate": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Optional PEM client certificate, retained byte-for-byte. Must be supplied with tls_client_key."
+          },
+          "tls_client_key": {
+            "type": "string",
+            "writeOnly": true,
+            "description": "Optional PEM private key, retained byte-for-byte. Must be supplied with tls_client_certificate."
+          }
+        },
+        "additionalProperties": false,
+        "description": "One JSON object, at most 160 KiB. Identifier, name, and URL fields are trimmed; PEM fields retain their exact bytes. Unknown fields are rejected."
+      },
+      "BranchName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "After trimming: 1 to 128 Unicode characters, with no Unicode control characters."
+      },
+      "BranchCreate": {
+        "type": "object",
+        "required": [
+          "connector_id",
+          "name",
+          "request_id"
+        ],
+        "properties": {
+          "connector_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "$ref": "#/components/schemas/BranchName"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Trimmed, then limited to 128 UTF-8 bytes; NUL is forbidden. Reuse for retries."
+          }
+        },
+        "additionalProperties": false
+      },
+      "BranchDelete": {
+        "type": "object",
+        "required": [
+          "connector_id",
+          "name"
+        ],
+        "properties": {
+          "connector_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "$ref": "#/components/schemas/BranchName"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CLICallback": {
+        "type": "string",
+        "format": "uri",
+        "description": "Exactly http://127.0.0.1:<port>/callback, port 1–65535; no user information, query, or fragment."
+      },
+      "CLIRandomValue": {
+        "type": "string",
+        "description": "Unpadded base64url encoding of exactly 32 bytes."
+      },
+      "CLIExchange": {
+        "type": "object",
+        "required": [
+          "code",
+          "code_verifier"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code_verifier": {
+            "$ref": "#/components/schemas/CLIRandomValue"
+          }
+        }
+      },
+      "CLIAuthorize": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "callback_uri",
+          "state",
+          "code_challenge",
+          "code_challenge_method"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "callback_uri": {
+            "$ref": "#/components/schemas/CLICallback"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CLIRandomValue"
+          },
+          "code_challenge": {
+            "$ref": "#/components/schemas/CLIRandomValue"
+          },
+          "code_challenge_method": {
+            "type": "string",
+            "const": "S256"
+          }
+        }
+      }
+    }
+  }
+}

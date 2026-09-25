@@ -1,0 +1,6 @@
+*-debug.log
+*-error.log
+dist/
+node_modules/
+oclif.manifest.json
+*.tsbuildinfo

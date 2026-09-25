@@ -1,0 +1,54 @@
+{
+  "name": "ardent-cli-beta",
+  "version": "0.0.0",
+  "description": "The Ardent command-line interface",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "ardent-beta": "./bin/run.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "NOTICE",
+    "openapi.json",
+    "bin/",
+    "dist/",
+    "oclif.manifest.json"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "oclif": {
+    "bin": "ardent-beta",
+    "dirname": "ardent",
+    "commands": "./dist/commands",
+    "helpClass": "./dist/help",
+    "plugins": [
+      "@oclif/plugin-autocomplete"
+    ],
+    "topicSeparator": " "
+  },
+  "scripts": {
+    "build": "npm run clean && tsc -b",
+    "clean": "node -e \"const {rmSync} = require('node:fs'); for (const path of ['dist', 'tsconfig.tsbuildinfo']) rmSync(path, {force: true, recursive: true})\"",
+    "manifest": "oclif manifest",
+    "prepack": "npm run build && npm run manifest",
+    "test": "npm run build && npm run manifest && node --import ./test/setup.js --test \"test/**/*.test.js\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@oclif/core": "^5.0.0",
+    "@oclif/plugin-autocomplete": "^4.0.0",
+    "string-width": "^4.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "oclif": "^5.0.1",
+    "typescript": "^5.9.0"
+  }
+}
