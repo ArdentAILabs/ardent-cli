@@ -12,6 +12,7 @@ export default class MemberDelete extends ArdentCommand {
 
   public static description = 'Delete a member or pending invitation by email'
   public static helpGroup = 'Members'
+  public static aliases = ['member:rm']
 
   public async run(): Promise<{email: string; status: 'active' | 'pending'}> {
     const {args} = await this.parse(MemberDelete)

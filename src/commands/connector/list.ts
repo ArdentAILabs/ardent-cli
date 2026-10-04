@@ -7,6 +7,7 @@ import {renderTable} from '../../table.js'
 export default class ConnectorList extends ArdentCommand {
   public static description = 'List connectors in the selected project'
   public static helpGroup = 'Connectors'
+  public static aliases = ['connector:ls']
 
   public async run(): Promise<{connectors: Connector[]}> {
     const session = await loadSession(this.config.configDir)

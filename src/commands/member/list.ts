@@ -6,6 +6,7 @@ import {renderTable} from '../../table.js'
 export default class MemberList extends ArdentCommand {
   public static description = 'List organization members and pending invitations'
   public static helpGroup = 'Members'
+  public static aliases = ['member:ls']
 
   public async run(): Promise<{invitations: Invitation[] | null; memberships: Membership[]}> {
     const session = await loadSession(this.config.configDir)

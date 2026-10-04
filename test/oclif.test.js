@@ -44,6 +44,39 @@ test('groups commands behind the standard help flag', async () => {
   assert.doesNotMatch(result.stdout, /autocomplete|darwin|linux|node-v|ardent-cli-beta\//)
 })
 
+test('lists each command once in grouped help, under its full name', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-help-shorthand-'))
+  const result = await runCLI(['--help'], configHome)
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.doesNotMatch(result.stdout, /ardent-beta (b|\w+ (ls|rm)) /)
+})
+
+test('every shorthand reaches the command it abbreviates', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-shorthand-'))
+  const summary = async (command) => {
+    const result = await runCLI([...command.split(' '), '--help'], configHome)
+    assert.equal(result.status, 0, `${command}: ${result.stderr}`)
+    return result.stdout.split('\n')[0]
+  }
+
+  const shorthands = {
+    'branch create': ['b create'],
+    'branch delete': ['branch rm', 'b delete', 'b rm'],
+    'branch list': ['branch ls', 'b list', 'b ls'],
+    'branch switch': ['b switch'],
+    'connector list': ['connector ls'],
+    'member delete': ['member rm'],
+    'member list': ['member ls'],
+    'project delete': ['project rm'],
+    'project list': ['project ls'],
+  }
+  for (const [command, forms] of Object.entries(shorthands)) {
+    const expected = await summary(command)
+    for (const form of forms) assert.equal(await summary(form), expected, form)
+  }
+})
+
 test('shows grouped help by default after login', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'ardent-cli-logged-in-root-'))
   await saveSession(join(configHome, 'ardent'), {token: 'test-token'})

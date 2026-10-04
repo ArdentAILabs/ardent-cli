@@ -7,6 +7,7 @@ import {renderTable} from '../../table.js'
 export default class BranchList extends ArdentCommand {
   public static description = 'List branches in the selected connector'
   public static helpGroup = 'Branches'
+  public static aliases = ['branch:ls', 'b:list', 'b:ls']
 
   public async run(): Promise<{branches: Branch[]}> {
     const session = await requireConnector(this.config.configDir, !this.jsonEnabled())

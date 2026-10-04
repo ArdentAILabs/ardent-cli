@@ -26,6 +26,11 @@ sends the connection URL for the control plane's credential delivery, while
 replication readiness remains owed. Connector-scoped branch
 creation, deletion, listing, and local switching are implemented.
 
+Commands also accept shorthand: `branch` → `b` for all branch subcommands,
+`list` → `ls` for project, member, connector, and branch lists, and
+`delete` → `rm` for project, member, and branch deletion. Shorthands compose:
+`ardent-beta b ls` and `ardent-beta b rm "my feature"` are valid commands.
+
 [openapi.json](openapi.json) describes the HTTP endpoints used by the CLI and
 ships in the npm package. It is a documentation snapshot of the control-plane
 specification as of 2026-09-24, from Ardent's private source revision

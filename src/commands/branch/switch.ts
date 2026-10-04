@@ -12,6 +12,7 @@ export default class BranchSwitch extends ArdentCommand {
   public static strict = false
   public static description = 'Switch to a branch in the selected connector'
   public static helpGroup = 'Branches'
+  public static aliases = ['b:switch']
 
   public async run(): Promise<Branch> {
     const {argv} = await this.parse(BranchSwitch)

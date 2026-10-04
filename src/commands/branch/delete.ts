@@ -11,6 +11,7 @@ export default class BranchDelete extends ArdentCommand {
   public static strict = false
   public static description = 'Delete a branch in the selected connector'
   public static helpGroup = 'Branches'
+  public static aliases = ['branch:rm', 'b:delete', 'b:rm']
 
   public async run(): Promise<BranchOperation> {
     const {argv} = await this.parse(BranchDelete)

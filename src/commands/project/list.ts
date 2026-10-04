@@ -9,6 +9,7 @@ import {renderTable} from '../../table.js'
 export default class ProjectList extends ArdentCommand {
   public static description = 'List projects'
   public static helpGroup = 'Projects'
+  public static aliases = ['project:ls']
 
   public async run(): Promise<{projects: Project[]}> {
     const session = await loadSession(this.config.configDir)

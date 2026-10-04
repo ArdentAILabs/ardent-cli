@@ -29,7 +29,8 @@ async function fixture(t, handle, saved = session) {
   })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   t.after(() => server.close())
-  return {home, requests, run: (args) => runCLI(['branch', ...args], home, {ARDENT_API_URL: `http://127.0.0.1:${server.address().port}`})}
+  const cli = (args) => runCLI(args, home, {ARDENT_API_URL: `http://127.0.0.1:${server.address().port}`})
+  return {home, requests, cli, run: (args) => cli(['branch', ...args])}
 }
 
 test('create sends connector ID and the name, with an internal request ID and no snapshot or placement arguments', async (t) => {
@@ -55,6 +56,14 @@ test('delete sends the name and connector ID directly and retains selection unti
   const updated = await loadSession(join(home, 'ardent'))
   assert.equal(updated.selectedBranch.id, branch.id)
   assert.equal(updated.branches.length, 1)
+})
+
+test('the composed delete shorthand names its target and sends the same request', async (t) => {
+  const {cli, requests} = await fixture(t, (_, response) => {response.statusCode = 202; response.end(JSON.stringify(operation))})
+  const result = await cli(['b', 'rm', 'my feature'])
+  assert.equal(result.status, 0, result.stderr)
+  assert.match(result.stdout, /Deleting branch my feature in connector Primary/)
+  assert.deepEqual(requests, [{method: 'DELETE', url: '/branches', authorization: 'Bearer test-token', body: {connector_id: 'connector-1', name: 'my feature'}}])
 })
 
 test('list fetches the selected connector every time and refreshes stale branch selection', async (t) => {

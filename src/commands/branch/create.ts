@@ -11,6 +11,7 @@ export default class BranchCreate extends ArdentCommand {
   public static strict = false
   public static description = 'Create a branch in the selected connector'
   public static helpGroup = 'Branches'
+  public static aliases = ['b:create']
 
   public async run(): Promise<BranchOperation> {
     const {argv} = await this.parse(BranchCreate)

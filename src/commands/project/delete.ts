@@ -13,6 +13,7 @@ export default class ProjectDelete extends ArdentCommand {
 
   public static description = 'Delete a project by name'
   public static helpGroup = 'Projects'
+  public static aliases = ['project:rm']
 
   public async run(): Promise<{id: string; name: string}> {
     const {args} = await this.parse(ProjectDelete)

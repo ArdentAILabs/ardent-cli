@@ -41,7 +41,7 @@ export default class ArdentHelp extends Help {
 
     const groups = new Map<string, GroupedCommand[]>()
     for (const command of this.sortedCommands as GroupedCommand[]) {
-      if (command.hidden || command.pluginName !== this.config.name || typeof command.helpGroup !== 'string') continue
+      if (command.hidden || command.aliases?.includes(command.id) || command.pluginName !== this.config.name || typeof command.helpGroup !== 'string') continue
       const commands = groups.get(command.helpGroup) ?? []
       commands.push(command)
       groups.set(command.helpGroup, commands)
